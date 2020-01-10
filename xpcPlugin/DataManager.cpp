@@ -36,8 +36,36 @@ namespace XPC
 
 	DREF XPData[134][8] = { DREF_None };
 
+	// AVL: Needed to save the last 10 positions and the times 
+	double rollingTimePos[10][4];
+	int rollingTimePosIndex = 0;
+
+	double PCFreq = 0.0;
+	__int64 CounterStart = 0;
+
+	void StartCounter()
+	{
+		LARGE_INTEGER li;
+		QueryPerformanceFrequency(&li);
+		PCFreq = (li.QuadPart) / 1000.0;
+
+		QueryPerformanceCounter(&li);
+		CounterStart = li.QuadPart;
+	}
+
+	double GetCounter()
+	{
+		LARGE_INTEGER li;
+		QueryPerformanceCounter(&li);
+		return (li.QuadPart - CounterStart) / PCFreq;
+	}
+
 	void DataManager::Initialize()
 	{
+		// AVL: Start high-precision counter for ms
+		StartCounter();
+		rollingTimePos[9][0] = -999.9;
+
 		Log::WriteLine(LOG_TRACE, "DMAN", "Initializing drefs");
 
 		drefs.insert(make_pair(DREF_None, XPLMFindDataRef("sim/test/test_float")));

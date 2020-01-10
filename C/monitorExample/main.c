@@ -23,10 +23,8 @@
 //     IMMEDIATE, UNILATERAL TERMINATION OF THIS AGREEMENT.
 
 #include "../src/xplaneConnect.h"
-#include <sys/time.h>
 #include "stdio.h"
 
-#ifdef WIN32
 HANDLE hStdIn = NULL;
 INPUT_RECORD buffer;
 int waitForInput()
@@ -48,29 +46,15 @@ int waitForInput()
 	}
 	return FALSE;
 }
-#else
-int fdstdin = 0;
-fd_set fds;
-struct timeval tv;
-
-int waitForInput()
-{
-
-	FD_ZERO(&fds);
-	FD_SET(fdstdin, &fds);
-	select(1, &fds, NULL, NULL, &tv);
-	return FD_ISSET(fdstdin, &fds);
-}
-#endif
 
 int main(void)
 {
 	XPCSocket client = openUDP("127.0.0.1");
 	const int aircraftNum = 0;
-    tv.tv_usec = 100 * 1000;
+
 	while (1)
 	{
-		float posi[7]; // FIXME: change this to the 64-bit lat/lon/h
+		double posi[7]; // FIXME: change this to the 64-bit lat/lon/h
 		int result = getPOSI(client, posi, aircraftNum);
 		if (result < 0) // Error in getPOSI
 		{
@@ -84,7 +68,7 @@ int main(void)
 			break;
 		}
 
-		printf("Loc: (%4f, %4f, %4f) Aileron:%2f Elevator:%2f Rudder:%2f\n",
+		printf("Loc: (%4lf, %4lf, %4lf) Aileron:%2f Elevator:%2f Rudder:%2f\n",
 			posi[0], posi[1], posi[2], ctrl[1], ctrl[0], ctrl[2]);
 
 		// Check if any key has been pressed and break

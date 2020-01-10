@@ -77,7 +77,8 @@
 #define RECVPORT 49009 // Port that the plugin receives commands on
 #define OPS_PER_CYCLE 20 // Max Number of operations per cycle
 
-#define XPC_PLUGIN_VERSION "1.3-rc.1"
+#define XPC_PLUGIN_VERSION "1.3-rc.5"
+
 
 using namespace std;
 
@@ -94,11 +95,19 @@ PLUGIN_API void	XPluginStop(void);
 PLUGIN_API void XPluginDisable(void);
 PLUGIN_API int XPluginEnable(void);
 PLUGIN_API void XPluginReceiveMessage(XPLMPluginID inFromWho, int inMessage, void* inParam);
-static float XPCFlightLoopCallback(float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void* inRefcon);
+
+static float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void* inRefcon);
+static float XPCFlightLoopCallbackAfterPhysics(float inElapsedSinceLastCall, float inElapsedTimeSinceLastFlightLoop, int inCounter, void* inRefcon);
+XPLMFlightLoopID SDK210_XPLMTempFlightLoopID = NULL;
+XPLMFlightLoopID SDK210_XPLMTempFlightLoopAfterPhysicsID = NULL;
+
+// Needed to backup POSI messages and write them again after physics (or if no POSI msg was received in a frame)
+bool writePosiAfterPhysics = false;
+XPC::Message msgPOSI;
 
 PLUGIN_API int XPluginStart(char* outName, char* outSig, char* outDesc)
 {
-	strcpy(outName, "X-Plane Connect [Version 1.3-rc.1]");
+	strcpy(outName, "X-Plane Connect [v1.3rc.5]");
 	strcpy(outSig, "NASA.XPlaneConnect");
 	strcpy(outDesc, "X Plane Communications Toolbox\nCopyright (c) 2013-2018 United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All Rights Reserved.");
 
@@ -127,7 +136,8 @@ PLUGIN_API void	XPluginStop(void)
 
 PLUGIN_API void XPluginDisable(void)
 {
-	XPLMUnregisterFlightLoopCallback(XPCFlightLoopCallback, NULL);
+	XPLMDestroyFlightLoop(SDK210_XPLMTempFlightLoopID);
+	XPLMDestroyFlightLoop(SDK210_XPLMTempFlightLoopAfterPhysicsID);
 
 	// Close sockets
 	delete sock;
@@ -151,7 +161,7 @@ PLUGIN_API int XPluginEnable(void)
 	// Open sockets
 	sock = new XPC::UDPSocket(RECVPORT);
 	timer = new XPC::Timer();
-	
+
 	XPC::MessageHandlers::SetSocket(sock);
 
 	XPC::Log::WriteLine(LOG_INFO, "EXEC", "Plugin Enabled, sockets opened");
@@ -163,9 +173,17 @@ PLUGIN_API int XPluginEnable(void)
 
 	float interval = -1; // Call every frame
 	void* refcon = NULL; // Don't pass anything to the callback directly
-	XPLMRegisterFlightLoopCallback(XPCFlightLoopCallback, interval, refcon);
 
-	
+	// This flight loop callback will be called BEFORE flight model physics
+	XPLMCreateFlightLoop_t	SDK210_XPLMCreateFlightLoop_t_ptr = { sizeof(XPLMCreateFlightLoop_t), xplm_FlightLoop_Phase_BeforeFlightModel, XPCFlightLoopCallbackBeforePhysics, NULL };
+	SDK210_XPLMTempFlightLoopID = XPLMCreateFlightLoop(&SDK210_XPLMCreateFlightLoop_t_ptr);
+	XPLMScheduleFlightLoop(SDK210_XPLMTempFlightLoopID, interval, true);
+
+	// This flight loop callback will be called AFTER flight model physics
+	XPLMCreateFlightLoop_t	SDK210_XPLMCreateFlightLoopAfterPhysics_t_ptr = { sizeof(XPLMCreateFlightLoop_t), xplm_FlightLoop_Phase_AfterFlightModel, XPCFlightLoopCallbackAfterPhysics, NULL };
+	SDK210_XPLMTempFlightLoopAfterPhysicsID = XPLMCreateFlightLoop(&SDK210_XPLMCreateFlightLoopAfterPhysics_t_ptr);
+	XPLMScheduleFlightLoop(SDK210_XPLMTempFlightLoopAfterPhysicsID, interval, true);
+
 	int xpVer;
 	XPLMGetVersions(&xpVer, NULL, NULL);
 	
@@ -173,7 +191,6 @@ PLUGIN_API int XPluginEnable(void)
 		XPC::MessageHandlers::SendBeacon(XPC_PLUGIN_VERSION, RECVPORT, xpVer);
 	});
 	
-
 	return 1;
 }
 
@@ -183,7 +200,7 @@ PLUGIN_API void XPluginReceiveMessage(XPLMPluginID inFromWho, int inMessage, voi
 	// any messages received.
 }
 
-float XPCFlightLoopCallback(float inElapsedSinceLastCall,
+float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 	float inElapsedTimeSinceLastFlightLoop,
 	int inCounter,
 	void* inRefcon)
@@ -196,6 +213,9 @@ float XPCFlightLoopCallback(float inElapsedSinceLastCall,
 	{
 		XPC::Log::FormatLine(LOG_DEBUG, "EXEC", "Cycle time %.6f", inElapsedSinceLastCall);
 	}
+
+	bool updatedPos = false;
+	int cooldownCounterForUpdatedPos = 0;
 
 	int ops;
 	for (ops = 0; ops < OPS_PER_CYCLE; ops++)
@@ -212,7 +232,18 @@ float XPCFlightLoopCallback(float inElapsedSinceLastCall,
 		{
 			break;
 		}
-		XPC::MessageHandlers::HandleMessage(msg);
+		else if (msg.GetHead() == "POSI") 
+		{
+			writePosiAfterPhysics = true;
+			updatedPos = true;
+			cooldownCounterForUpdatedPos = 5;
+			msgPOSI.CopyMessage(msg);
+			XPC::MessageHandlers::HandleMessage(msgPOSI);
+		}
+		else
+		{
+			XPC::MessageHandlers::HandleMessage(msg);
+		}
 
 		if (benchmarkingSwitch > 0)
 		{
@@ -223,6 +254,16 @@ float XPCFlightLoopCallback(float inElapsedSinceLastCall,
 #endif
 		}
 	}
+
+	// If this frame no POSI updates were received (but POSI was updated before) then write saved last POSI update
+	if (!updatedPos && msgPOSI.GetSize() != 0 && cooldownCounterForUpdatedPos)
+	{
+		writePosiAfterPhysics = true;
+		XPC::MessageHandlers::HandleMessage(msgPOSI);
+	}
+
+	// when the cooldown counter reaches 0 no old POSI updates are written anymore  
+	cooldownCounterForUpdatedPos--;
 
 	// If we have processed the maximum number of requests in a single frame,
 	// the socket is probably overloaded. Hopefully this is caused by a
@@ -237,5 +278,20 @@ float XPCFlightLoopCallback(float inElapsedSinceLastCall,
 		sock = new XPC::UDPSocket(RECVPORT);
 		XPC::MessageHandlers::SetSocket(sock);
 	}
+	return -1;
+}
+
+// During this callback the same POSI update values as in the callback before physics are written again 
+float XPCFlightLoopCallbackAfterPhysics(float inElapsedSinceLastCall,
+	float inElapsedTimeSinceLastFlightLoop,
+	int inCounter,
+	void* inRefcon)
+{
+	if (writePosiAfterPhysics)
+	{
+		writePosiAfterPhysics = false;
+		XPC::MessageHandlers::HandleMessage(msgPOSI);
+	}
+
 	return -1;
 }

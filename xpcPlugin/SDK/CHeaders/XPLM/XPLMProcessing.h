@@ -24,6 +24,9 @@
 
 #include "XPLMDefs.h"
 
+// AVL: Added this to get the new callback loop methods since 2.1.0  
+//#define XPLM210
+
 #ifdef __cplusplus
 extern "C" {
 #endif

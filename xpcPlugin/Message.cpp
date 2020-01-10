@@ -168,4 +168,15 @@ namespace XPC
 			Log::WriteLine(LOG_DEBUG, "DBUG", ss.str());
 		}
 	}
+
+	void Message::CopyMessage(Message &msg)
+	{
+		source = msg.source;
+		size = msg.GetSize();
+
+		for (int i = 0; i < size; i++)
+		{
+			buffer[i] = msg.buffer[i];
+		}
+	}
 }

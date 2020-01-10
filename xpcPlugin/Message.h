@@ -12,7 +12,7 @@ namespace XPC
 	/// \author Jason Watkins
 	/// \version 1.1
 	/// \since 1.0
-	/// \date Intial Version: 2015-04-11
+	/// \date Initial Version: 2015-04-11
 	/// \date Last Updated: 2015-05-11
 	class Message
 	{
@@ -41,12 +41,16 @@ namespace XPC
 		/// Prints the contents of the message to the XPC log.
 		void PrintToLog() const;
 
-	private:
+		/// Copies a message
+		void CopyMessage(Message &msg);
+
 		Message();
+
+	private:
 
 		static const std::size_t bufferSize = 4096;
 		unsigned char buffer[bufferSize];
-		std::size_t size;
+		std::size_t size = 0;
 		struct sockaddr source;
 	};
 }
