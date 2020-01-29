@@ -121,7 +121,7 @@ namespace XPC
 			}
 			Log::WriteLine(LOG_DEBUG, "DBUG", ss.str());
 		}
-		else if (head == "GETC" || head == "GETP")
+		else if (head == "GETC" || head == "GETP" || head == "GETT")
 		{
 			ss << " Aircraft:" << (int)buffer[5];
 			Log::WriteLine(LOG_DEBUG, "DBUG", ss.str());
@@ -141,11 +141,25 @@ namespace XPC
 		else if (head == "POSI")
 		{
 			char aircraft = buffer[5];
-			float gear = *((float*)(buffer + 30));
-			float pos[3];
+			float gear;
+			double pos[3];
 			float orient[3];
-			memcpy(pos, buffer + 6, 12);
-			memcpy(orient, buffer + 18, 12);
+			if (size == 34) /* lat/lon/h as 32-bit float */
+			{
+				float posd_32[3];
+				memcpy(posd_32, buffer + 6, 12);
+				pos[0] = posd_32[0];
+				pos[1] = posd_32[1];
+				pos[2] = posd_32[2];
+				memcpy(orient, buffer + 18, 12);
+				memcpy(&gear, buffer + 30, 4);
+			}
+			else if (size == 46) /* lat/lon/h as 64-bit double */
+			{
+				memcpy(pos, buffer + 6, 24);
+				memcpy(orient, buffer + 30, 12);
+				memcpy(&gear, buffer + 42, 4);
+			}
 			ss << " AC:" << (int)aircraft;
 			ss << " Pos:(" << pos[0] << ' ' << pos[1] << ' ' << pos[2] << ") Orient:(";
 			ss << orient[0] << ' ' << orient[1] << ' ' << orient[2] << ") Gear:";
