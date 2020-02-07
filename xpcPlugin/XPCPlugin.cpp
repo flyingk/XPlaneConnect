@@ -297,6 +297,10 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 				msgR.CopyMessage(msg);
 				XPC::MessageHandlers::HandleMessage(msgR);
 			}
+			else
+			{
+				XPC::MessageHandlers::HandleMessage(msg);
+			}
 		}
 		else
 		{
