@@ -29,6 +29,9 @@ namespace XPC
 		/// Gets the message header.
 		std::string GetHead() const;
 
+		/// If the Head is DREF the return the dref name.
+		std::string GetDrefName() const;
+
 		/// Gets the buffer underlying the message.
 		const unsigned char* GetBuffer() const;
 

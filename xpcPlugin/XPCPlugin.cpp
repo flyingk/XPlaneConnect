@@ -101,13 +101,23 @@ static float XPCFlightLoopCallbackAfterPhysics(float inElapsedSinceLastCall, flo
 XPLMFlightLoopID SDK210_XPLMTempFlightLoopID = NULL;
 XPLMFlightLoopID SDK210_XPLMTempFlightLoopAfterPhysicsID = NULL;
 
-// Needed to backup POSI messages and write them again after physics (or if no POSI msg was received in a frame)
+// Needed to backup POSI and other messages and write them again after physics (or if no POSI msg was received in a frame)
 bool writePosiAfterPhysics = false;
 XPC::Message msgPOSI;
+XPC::Message msgVX;
+XPC::Message msgVY;
+XPC::Message msgVZ;
+XPC::Message msgAX;
+XPC::Message msgAY;
+XPC::Message msgAZ;
+XPC::Message msgP;
+XPC::Message msgQ;
+XPC::Message msgR;
+
 
 PLUGIN_API int XPluginStart(char* outName, char* outSig, char* outDesc)
 {
-	strcpy(outName, "X-Plane Connect [v1.3rc.5]");
+	strcpy(outName, "Lilium to X-Plane Connect [v1.4]");
 	strcpy(outSig, "NASA.XPlaneConnect");
 	strcpy(outDesc, "X Plane Communications Toolbox\nCopyright (c) 2013-2018 United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All Rights Reserved.");
 
@@ -240,6 +250,54 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 			msgPOSI.CopyMessage(msg);
 			XPC::MessageHandlers::HandleMessage(msgPOSI);
 		}
+		else if (msg.GetHead() == "DREF")
+		{
+			if (msg.GetDrefName() == "sim/flightmodel/position/local_vx")
+			{
+				msgVX.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgVX);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/local_vy")
+			{
+				msgVY.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgVY);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/local_vz")
+			{
+				msgVZ.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgVZ);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/local_ax")
+			{
+				msgAX.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgAX);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/local_ay")
+			{
+				msgAY.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgAY);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/local_az")
+			{
+				msgAZ.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgAZ);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/P")
+			{
+				msgP.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgP);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/Q")
+			{
+				msgQ.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgQ);
+			}
+			else if (msg.GetDrefName() == "sim/flightmodel/position/R")
+			{
+				msgR.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgR);
+			}
+		}
 		else
 		{
 			XPC::MessageHandlers::HandleMessage(msg);
@@ -260,6 +318,16 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 	{
 		writePosiAfterPhysics = true;
 		XPC::MessageHandlers::HandleMessage(msgPOSI);
+
+		if (msgVX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVX);
+		if (msgVY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVY);
+		if (msgVZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVZ);
+		if (msgAX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAX);
+		if (msgAY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAY);
+		if (msgAZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAZ);
+		if (msgP.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgP);
+		if (msgQ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgQ);
+		if (msgR.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgR);
 	}
 
 	// when the cooldown counter reaches 0 no old POSI updates are written anymore  
@@ -291,6 +359,16 @@ float XPCFlightLoopCallbackAfterPhysics(float inElapsedSinceLastCall,
 	{
 		writePosiAfterPhysics = false;
 		XPC::MessageHandlers::HandleMessage(msgPOSI);
+
+		if (msgVX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVX);
+		if (msgVY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVY);
+		if (msgVZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVZ);
+		if (msgAX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAX);
+		if (msgAY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAY);
+		if (msgAZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAZ);
+		if (msgP.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgP);
+		if (msgQ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgQ);
+		if (msgR.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgR);
 	}
 
 	return -1;

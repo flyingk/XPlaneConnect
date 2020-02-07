@@ -31,6 +31,15 @@ namespace XPC
 		return val;
 	}
 
+	std::string Message::GetDrefName() const
+	{
+		if (GetHead() != "DREF")
+			return "";
+
+		std::string dref((char*)buffer + 6, buffer[5]);
+		return dref;
+	}
+
 	const unsigned char* Message::GetBuffer() const
 	{
 		const unsigned char* val = size == 0 ? NULL : buffer;
