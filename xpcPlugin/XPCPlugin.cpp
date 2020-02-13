@@ -77,7 +77,7 @@
 #define RECVPORT 49009 // Port that the plugin receives commands on
 #define OPS_PER_CYCLE 20 // Max Number of operations per cycle
 
-#define XPC_PLUGIN_VERSION "1.3-rc.5"
+#define XPC_PLUGIN_VERSION "1.4.3"
 
 
 using namespace std;
@@ -117,7 +117,7 @@ XPC::Message msgR;
 
 PLUGIN_API int XPluginStart(char* outName, char* outSig, char* outDesc)
 {
-	strcpy(outName, "Lilium to X-Plane Connect [v1.4]");
+	strcpy(outName, "Lilium to X-Plane Connect [v1.4.3]");
 	strcpy(outSig, "NASA.XPlaneConnect");
 	strcpy(outDesc, "X Plane Communications Toolbox\nCopyright (c) 2013-2018 United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All Rights Reserved.");
 
@@ -246,7 +246,7 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 		{
 			writePosiAfterPhysics = true;
 			updatedPos = true;
-			cooldownCounterForUpdatedPos = 5;
+			cooldownCounterForUpdatedPos = 100;  // for 100 frames the last buffered values will be written 
 			msgPOSI.CopyMessage(msg);
 			XPC::MessageHandlers::HandleMessage(msgPOSI);
 		}
@@ -299,6 +299,7 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 			}
 			else
 			{
+				// Handle all other DREFs
 				XPC::MessageHandlers::HandleMessage(msg);
 			}
 		}
