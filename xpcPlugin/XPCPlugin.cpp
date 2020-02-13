@@ -113,6 +113,7 @@ XPC::Message msgAZ;
 XPC::Message msgP;
 XPC::Message msgQ;
 XPC::Message msgR;
+XPC::Message msgM_total;
 
 
 PLUGIN_API int XPluginStart(char* outName, char* outSig, char* outDesc)
@@ -297,6 +298,11 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 				msgR.CopyMessage(msg);
 				XPC::MessageHandlers::HandleMessage(msgR);
 			}
+			else if (msg.GetDrefName() == "sim/flightmodel/forces/M_total")
+			{
+				msgR.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgM_total);
+			}
 			else
 			{
 				// Handle all other DREFs
@@ -333,6 +339,7 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 		if (msgP.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgP);
 		if (msgQ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgQ);
 		if (msgR.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgR);
+		if (msgM_total.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgM_total);
 	}
 
 	// when the cooldown counter reaches 0 no old POSI updates are written anymore  
@@ -374,6 +381,7 @@ float XPCFlightLoopCallbackAfterPhysics(float inElapsedSinceLastCall,
 		if (msgP.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgP);
 		if (msgQ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgQ);
 		if (msgR.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgR);
+		if (msgM_total.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgM_total);
 	}
 
 	return -1;
