@@ -36,10 +36,6 @@ namespace XPC
 
 	DREF XPData[134][8] = { DREF_None };
 
-	// AVL: Needed to save the last 10 positions and the times 
-	double rollingTimePos[10][4];
-	int rollingTimePosIndex = 0;
-
 	double PCFreq = 0.0;
 	__int64 CounterStart = 0;
 
@@ -62,16 +58,13 @@ namespace XPC
 
 	void DataManager::Initialize()
 	{
-		// AVL: Start high-precision counter for ms
-		StartCounter();
-		rollingTimePos[9][0] = -999.9;
-
 		Log::WriteLine(LOG_TRACE, "DMAN", "Initializing drefs");
 
 		drefs.insert(make_pair(DREF_None, XPLMFindDataRef("sim/test/test_float")));
 
 		drefs.insert(make_pair(DREF_Pause, XPLMFindDataRef("sim/operation/override/override_planepath")));
 		drefs.insert(make_pair(DREF_PauseAI, XPLMFindDataRef("sim/operation/override/override_plane_ai_autopilot")));
+		drefs.insert(make_pair(DREF_OverrideForces, XPLMFindDataRef("sim/operation/override/override_forces")));
 
 		drefs.insert(make_pair(DREF_TotalRuntime, XPLMFindDataRef("sim/time/total_running_time_sec")));
 		drefs.insert(make_pair(DREF_TotalFlighttime, XPLMFindDataRef("sim/time/total_flight_time_sec")));
@@ -113,6 +106,7 @@ namespace XPC
 		drefs.insert(make_pair(DREF_M, XPLMFindDataRef("sim/flightmodel/position/M")));
 		drefs.insert(make_pair(DREF_L, XPLMFindDataRef("sim/flightmodel/position/L")));
 		drefs.insert(make_pair(DREF_N, XPLMFindDataRef("sim/flightmodel/position/N")));
+		drefs.insert(make_pair(DREF_Mtotal, XPLMFindDataRef("sim/flightmodel/forces/M_total")));
 
 		drefs.insert(make_pair(DREF_QRad, XPLMFindDataRef("sim/flightmodel/position/Qrad")));
 		drefs.insert(make_pair(DREF_PRad, XPLMFindDataRef("sim/flightmodel/position/Prad")));
@@ -733,12 +727,30 @@ namespace XPC
 		Set(DREF_LocalY, local[1], aircraft);
 		Set(DREF_LocalZ, local[2], aircraft);
 		// If the sim is unpaused, this will override the above settings.
-		Set(DREF_Latitude,  pos[0], aircraft);
+		Set(DREF_Latitude, pos[0], aircraft);
 		Set(DREF_Longitude, pos[1], aircraft);
 		Set(DREF_Elevation, pos[2], aircraft);
 
 		// Now reset orientation to update q
 		SetOrientation(orient, aircraft);
+
+		// Based on AGL switch on/off "override_forces"
+		// In flight the DREF "override_forces" needs to be switched on (if the physics engine is running) 
+		// to be able to continuously set the protected DREF "M_total" to 0 (to avoid pitch glitches)
+		if (!aircraft)
+		{
+			if (GetFloat(DREF_AGL, aircraft) > 1)
+			{
+				Set(DREF_OverrideForces, 1, aircraft);
+				//Log::FormatLine(LOG_INFO, "DMAN", "DREF_OverrideForces = 1");
+			}
+			else
+			{
+				Set(DREF_OverrideForces, 0, aircraft);
+				//Log::FormatLine(LOG_INFO, "DMAN", "DREF_OverrideForces = 0");
+			}
+			//Log::FormatLine(LOG_INFO, "DMAN", "AGL for aircraft %i is: %f", aircraft, GetFloat(DREF_AGL, aircraft));
+		}
 	}
 
 	void DataManager::SetOrientation(float orient[3], char aircraft)

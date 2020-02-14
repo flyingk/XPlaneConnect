@@ -77,7 +77,7 @@
 #define RECVPORT 49009 // Port that the plugin receives commands on
 #define OPS_PER_CYCLE 20 // Max Number of operations per cycle
 
-#define XPC_PLUGIN_VERSION "1.4.3"
+#define XPC_PLUGIN_VERSION "1.4.4"
 
 
 using namespace std;
@@ -118,7 +118,7 @@ XPC::Message msgM_total;
 
 PLUGIN_API int XPluginStart(char* outName, char* outSig, char* outDesc)
 {
-	strcpy(outName, "Lilium to X-Plane Connect [v1.4.3]");
+	strcpy(outName, "Lilium to X-Plane Connect [v1.4.4]");
 	strcpy(outSig, "NASA.XPlaneConnect");
 	strcpy(outDesc, "X Plane Communications Toolbox\nCopyright (c) 2013-2018 United States Government as represented by the Administrator of the National Aeronautics and Space Administration. All Rights Reserved.");
 

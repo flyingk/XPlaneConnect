@@ -14,6 +14,7 @@ namespace XPC
 
 		DREF_Pause,
 		DREF_PauseAI,
+		DREF_OverrideForces,
 
 		// Times
 		DREF_TotalRuntime = 100,
@@ -61,6 +62,7 @@ namespace XPC
 		DREF_M = 1500,
 		DREF_L,
 		DREF_N,
+		DREF_Mtotal,
 
 		// PQR (Angular Velocities)
 		DREF_QRad = 1600,
@@ -91,7 +93,7 @@ namespace XPC
 		DREF_Elevation,
 		DREF_AGL,
 
-		// Local Postion & Velocity
+		// Local Position & Velocity
 		DREF_LocalX = 2100,
 		DREF_LocalY,
 		DREF_LocalZ,
