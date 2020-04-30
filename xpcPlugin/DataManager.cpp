@@ -69,6 +69,7 @@ namespace XPC
 		drefs.insert(make_pair(DREF_TotalRuntime, XPLMFindDataRef("sim/time/total_running_time_sec")));
 		drefs.insert(make_pair(DREF_TotalFlighttime, XPLMFindDataRef("sim/time/total_flight_time_sec")));
 		drefs.insert(make_pair(DREF_TimerElapsedtime, XPLMFindDataRef("sim/time/timer_elapsed_time_sec")));
+		drefs.insert(make_pair(DREF_ZuluTimeSec, XPLMFindDataRef("sim/time/zulu_time_sec")));
 
 		drefs.insert(make_pair(DREF_IndicatedAirspeed, XPLMFindDataRef("sim/flightmodel/position/indicated_airspeed")));
 		drefs.insert(make_pair(DREF_TrueAirspeed, XPLMFindDataRef("sim/flightmodel/position/true_airspeed")));
@@ -678,6 +679,14 @@ namespace XPC
 		{
 			Set(DREF_GearDeploy, gearArray, 10, aircraft);
 		}
+	}
+
+
+	void DataManager::SetZulu(float zuluTime)
+	{
+		Log::FormatLine(LOG_INFO, "DMAN", "Setting Zulu time: %f", zuluTime);
+
+		Set(DREF_ZuluTimeSec, zuluTime);
 	}
 
 	void DataManager::SetPosition(double pos[3], char aircraft)

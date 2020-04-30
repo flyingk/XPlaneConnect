@@ -175,6 +175,19 @@ namespace XPC
 			ss << gear;
 			Log::WriteLine(LOG_DEBUG, "DBUG", ss.str());
 		}
+		else if (head == "RELO")
+		{
+			float gear;
+			double pos[3];
+			float orient[3];
+			memcpy(pos, buffer + 6, 24);
+			memcpy(orient, buffer + 30, 12);
+			memcpy(&gear, buffer + 42, 4);
+			ss << " Pos:(" << pos[0] << ' ' << pos[1] << ' ' << pos[2] << ") Orient:(";
+			ss << orient[0] << ' ' << orient[1] << ' ' << orient[2] << ") Gear:";
+			ss << gear;
+			Log::WriteLine(LOG_DEBUG, "DBUG", ss.str());
+		}
 		else if (head == "SIMU")
 		{
 			ss << ' ' << (int)buffer[5];

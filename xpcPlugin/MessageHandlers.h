@@ -80,7 +80,9 @@ namespace XPC
 		
         static int CamCallback_RunwayCam( XPLMCameraPosition_t * outCameraPosition, int inIsLosingControl, void *inRefcon);
         static int CamCallback_ChaseCam( XPLMCameraPosition_t * outCameraPosition, int inIsLosingControl, void *inRefcon);
-		
+
+		static void HandleRelocate(const Message& msg);
+
 		struct CameraProperties{
 			double loc[3];
 			float direction[3];

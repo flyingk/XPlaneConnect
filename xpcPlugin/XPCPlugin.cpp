@@ -103,7 +103,9 @@ XPLMFlightLoopID SDK210_XPLMTempFlightLoopAfterPhysicsID = NULL;
 
 // Needed to backup POSI and other messages and write them again after physics (or if no POSI msg was received in a frame)
 bool writePosiAfterPhysics = false;
+int cooldownCounterForUpdatedPos = 0;
 XPC::Message msgPOSI;
+XPC::Message msgRELO;
 XPC::Message msgVX;
 XPC::Message msgVY;
 XPC::Message msgVZ;
@@ -115,6 +117,7 @@ XPC::Message msgQ;
 XPC::Message msgR;
 XPC::Message msgM_total;
 
+int relocationDoOrientationDelay=-1;
 
 PLUGIN_API int XPluginStart(char* outName, char* outSig, char* outDesc)
 {
@@ -225,125 +228,153 @@ float XPCFlightLoopCallbackBeforePhysics(float inElapsedSinceLastCall,
 		XPC::Log::FormatLine(LOG_DEBUG, "EXEC", "Cycle time %.6f", inElapsedSinceLastCall);
 	}
 
-	bool updatedPos = false;
-	int cooldownCounterForUpdatedPos = 0;
+	int ops = 0;
 
-	int ops;
-	for (ops = 0; ops < OPS_PER_CYCLE; ops++)
+	// Only if no relocation is in progress run through new messages
+	if (relocationDoOrientationDelay == -1)
 	{
-		if (benchmarkingSwitch > 0)
-		{
-#if (__APPLE__)
-			start = (double)mach_absolute_time( ) * timeConvert;
-#endif
-		}
+		bool updatedPos = false;
 
-		XPC::Message msg = XPC::Message::ReadFrom(*sock);
-		if (msg.GetHead() == "")
+		for (ops = 0; ops < OPS_PER_CYCLE; ops++)
 		{
-			break;
-		}
-		else if (msg.GetHead() == "POSI") 
-		{
-			writePosiAfterPhysics = true;
-			updatedPos = true;
-			cooldownCounterForUpdatedPos = 100;  // for 100 frames the last buffered values will be written 
-			msgPOSI.CopyMessage(msg);
-			XPC::MessageHandlers::HandleMessage(msgPOSI);
-		}
-		else if (msg.GetHead() == "DREF")
-		{
-			if (msg.GetDrefName() == "sim/flightmodel/position/local_vx")
+			if (benchmarkingSwitch > 0)
 			{
-				msgVX.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgVX);
+#if (__APPLE__)
+				start = (double)mach_absolute_time() * timeConvert;
+#endif
 			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/local_vy")
+
+			XPC::Message msg = XPC::Message::ReadFrom(*sock);
+			if (msg.GetHead() == "")
 			{
-				msgVY.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgVY);
+				break;
 			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/local_vz")
+			else if (msg.GetHead() == "POSI")
 			{
-				msgVZ.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgVZ);
+				writePosiAfterPhysics = true;
+				updatedPos = true;
+				cooldownCounterForUpdatedPos = 100;  // for 100 frames the last buffered values will be written 
+				msgPOSI.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgPOSI);
 			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/local_ax")
+			else if (msg.GetHead() == "RELO")
 			{
-				msgAX.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgAX);
+				writePosiAfterPhysics = false;
+				updatedPos = true;
+				cooldownCounterForUpdatedPos = 0;
+				relocationDoOrientationDelay = 10;
+				msgRELO.CopyMessage(msg);
+				XPC::MessageHandlers::HandleMessage(msgRELO);
+				XPC::Log::WriteLine(LOG_WARN, "RELO", "FIRST TIME");
 			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/local_ay")
+			else if (msg.GetHead() == "DREF")
 			{
-				msgAY.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgAY);
-			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/local_az")
-			{
-				msgAZ.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgAZ);
-			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/P")
-			{
-				msgP.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgP);
-			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/Q")
-			{
-				msgQ.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgQ);
-			}
-			else if (msg.GetDrefName() == "sim/flightmodel/position/R")
-			{
-				msgR.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgR);
-			}
-			else if (msg.GetDrefName() == "sim/flightmodel/forces/M_total")
-			{
-				msgR.CopyMessage(msg);
-				XPC::MessageHandlers::HandleMessage(msgM_total);
+				if (msg.GetDrefName() == "sim/flightmodel/position/local_vx")
+				{
+					msgVX.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgVX);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/local_vy")
+				{
+					msgVY.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgVY);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/local_vz")
+				{
+					msgVZ.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgVZ);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/local_ax")
+				{
+					msgAX.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgAX);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/local_ay")
+				{
+					msgAY.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgAY);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/local_az")
+				{
+					msgAZ.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgAZ);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/P")
+				{
+					msgP.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgP);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/Q")
+				{
+					msgQ.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgQ);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/position/R")
+				{
+					msgR.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgR);
+				}
+				else if (msg.GetDrefName() == "sim/flightmodel/forces/M_total")
+				{
+					msgR.CopyMessage(msg);
+					XPC::MessageHandlers::HandleMessage(msgM_total);
+				}
+				else
+				{
+					// Handle all other DREFs
+					XPC::MessageHandlers::HandleMessage(msg);
+				}
 			}
 			else
 			{
-				// Handle all other DREFs
 				XPC::MessageHandlers::HandleMessage(msg);
 			}
-		}
-		else
-		{
-			XPC::MessageHandlers::HandleMessage(msg);
-		}
 
-		if (benchmarkingSwitch > 0)
-		{
+			if (benchmarkingSwitch > 0)
+			{
 #if (__APPLE__)
-			lap = (double)mach_absolute_time( ) * timeConvert;
-			diff_t = lap - start;
-			XPC::Log::FormatLine(LOG_INFO, "EXEC", "Runtime %.6f", diff_t);
+				lap = (double)mach_absolute_time() * timeConvert;
+				diff_t = lap - start;
+				XPC::Log::FormatLine(LOG_INFO, "EXEC", "Runtime %.6f", diff_t);
 #endif
+			}
+		}
+
+		// If this frame no POSI updates were received (but POSI was updated before) then write saved last POSI update
+		if (!updatedPos && msgPOSI.GetSize() != 0 && cooldownCounterForUpdatedPos > 0)
+		{
+			writePosiAfterPhysics = true;
+			XPC::MessageHandlers::HandleMessage(msgPOSI);
+
+			if (msgVX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVX);
+			if (msgVY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVY);
+			if (msgVZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVZ);
+			if (msgAX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAX);
+			if (msgAY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAY);
+			if (msgAZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAZ);
+			if (msgP.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgP);
+			if (msgQ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgQ);
+			if (msgR.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgR);
+			if (msgM_total.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgM_total);
+
+			// when the cooldown counter reaches 0 no old POSI updates are written anymore  
+			cooldownCounterForUpdatedPos--;
 		}
 	}
 
-	// If this frame no POSI updates were received (but POSI was updated before) then write saved last POSI update
-	if (!updatedPos && msgPOSI.GetSize() != 0 && cooldownCounterForUpdatedPos)
+	if (relocationDoOrientationDelay > 0)
 	{
-		writePosiAfterPhysics = true;
-		XPC::MessageHandlers::HandleMessage(msgPOSI);
-
-		if (msgVX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVX);
-		if (msgVY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVY);
-		if (msgVZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgVZ);
-		if (msgAX.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAX);
-		if (msgAY.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAY);
-		if (msgAZ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgAZ);
-		if (msgP.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgP);
-		if (msgQ.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgQ);
-		if (msgR.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgR);
-		if (msgM_total.GetSize() != 0) XPC::MessageHandlers::HandleMessage(msgM_total);
+		XPC::Log::WriteLine(LOG_WARN, "RELO", "DEC --");
+		relocationDoOrientationDelay--;
 	}
+	else if (relocationDoOrientationDelay == 0)
+	{
+		XPC::Log::WriteLine(LOG_WARN, "RELO", "SEND AGAIN");
+		relocationDoOrientationDelay = -1;
 
-	// when the cooldown counter reaches 0 no old POSI updates are written anymore  
-	cooldownCounterForUpdatedPos--;
+		// Now set the orientation for the plan after the relocation has finished, hackjob - just send the relocation message again
+		XPC::MessageHandlers::HandleMessage(msgRELO);
+	}
 
 	// If we have processed the maximum number of requests in a single frame,
 	// the socket is probably overloaded. Hopefully this is caused by a

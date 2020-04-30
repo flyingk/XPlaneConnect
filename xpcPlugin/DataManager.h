@@ -20,6 +20,7 @@ namespace XPC
 		DREF_TotalRuntime = 100,
 		DREF_TotalFlighttime,
 		DREF_TimerElapsedtime,
+		DREF_ZuluTimeSec,
 
 		// Velocities
 		DREF_IndicatedAirspeed = 300,
@@ -392,6 +393,9 @@ namespace XPC
 		///                  If immediate is false, only the gear handle dref will be set.
 		/// \param aircraft  The aircraft to set the landing gear status on.
 		static void SetGear(float gear, bool immediate, char aircraft = 0);
+
+		/// Sets the Zulu time in seconds from midnight
+		static void SetZulu(float zuluTime);
 
 		/// Sets the position of the specified aircraft on the Earth.
 		///

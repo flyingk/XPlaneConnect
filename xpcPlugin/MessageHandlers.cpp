@@ -72,6 +72,8 @@ namespace XPC
 			handlers.insert(std::make_pair("GETC", MessageHandlers::HandleGetC));
 			handlers.insert(std::make_pair("GETP", MessageHandlers::HandleGetP));
 			handlers.insert(std::make_pair("GETT", MessageHandlers::HandleGetT));
+			handlers.insert(std::make_pair("RELO", MessageHandlers::HandleRelocate));
+
 			// X-Plane data messages
 			handlers.insert(std::make_pair("DSEL", MessageHandlers::HandleXPlaneData));
 			handlers.insert(std::make_pair("USEL", MessageHandlers::HandleXPlaneData));
@@ -111,7 +113,7 @@ namespace XPC
 		if (conn == connections.end()) // New connection
 		{
 			connection = MessageHandlers::ConnectionInfo();
-			// If this is a new connection, that means we just added an elment
+			// If this is a new connection, that means we just added an element
 			// to connections. As long as we never remove elements, the size of
 			// connections will serve as a unique id.
 			connection.id = static_cast<unsigned char>(connections.size());
@@ -720,6 +722,74 @@ namespace XPC
 		sock->SendTo(response, 50, &connection.addr);
 	}
 
+
+	void MessageHandlers::HandleRelocate(const Message& msg)
+	{
+		// Update log
+		Log::FormatLine(LOG_TRACE, "RELOCATE", "Message Received (Conn %i)", connection.id);
+
+		const unsigned char* buffer = msg.GetBuffer();
+		const std::size_t size = msg.GetSize();
+
+		float zuluTime;
+		double posd[3];
+		float orient[3];
+
+		if (size == 46) /* lat/lon/h as 64-bit double */
+		{
+			memcpy(posd, buffer + 6, 24);
+			memcpy(orient, buffer + 30, 12);
+			memcpy(&zuluTime, buffer + 42, 4);
+		}
+		else
+		{
+			Log::FormatLine(LOG_ERROR, "RELOCATE", "ERROR: Unexpected size: %i (Expected 46 for double values)", size);
+			return;
+		}
+
+		if (zuluTime >= 0)
+		{
+			DataManager::SetZulu(zuluTime);
+		}
+
+		// If altitude is below -1000.0 then the AC should be set to ground level
+		if (posd[2] < -999.0)
+		{
+			double X, Y, Z;
+
+			// terrain probe at specified location, probe must be below ground level to work
+			XPLMWorldToLocal(posd[0], posd[1], -100, &X, &Y, &Z);
+
+			// Init terrain probe (if required) and probe data struct
+			XPLMProbeInfo_t probe_data;
+			probe_data.structSize = sizeof(XPLMProbeInfo_t);
+
+			if (Terrain_probe == nullptr)
+			{
+				Log::FormatLine(LOG_TRACE, "RELO", "Create terrain probe for aircraft 0");
+				Terrain_probe = XPLMCreateProbe(0);
+			}
+
+			// query probe
+			int rc = XPLMProbeTerrainXYZ(Terrain_probe, X, Y, Z, &probe_data);
+
+			// transform probe location to world coordinates
+			double lat, lon, alt;
+
+			if (rc == 0)
+			{
+				XPLMLocalToWorld(probe_data.locationX, probe_data.locationY, probe_data.locationZ, &lat, &lon, &alt);
+				Log::FormatLine(LOG_TRACE, "RELO", "Probe LLA %lf %lf %lf", lat, lon, alt);
+
+				// AC_GC_TO_WHEELS is computed from negative value
+				posd[2] = alt - (posd[2] + 1000);
+			}
+		}
+
+		/* convert float to double */
+		DataManager::SetPosition(posd, 0);
+		DataManager::SetOrientation(orient, 0);
+	}
 
 	void MessageHandlers::HandleSimu(const Message& msg)
 	{
